@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 
-	"github.com/aditya3232/gatewatchApp-services.git/config"
-	"github.com/aditya3232/gatewatchApp-services.git/connection"
-	"github.com/aditya3232/gatewatchApp-services.git/helper"
-	"github.com/aditya3232/gatewatchApp-services.git/model/consumer_vandal_detection"
+	"github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/config"
+	"github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/connection"
+	_ "github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/cron"
+	"github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/helper"
+	"github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/model/consumer_vandal_detection"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,7 +16,9 @@ func main() {
 
 	forever := make(chan bool)
 	go func() {
-		consumerVandalDetectionRepository := consumer_vandal_detection.NewRepository(connection.DatabaseMysql(), connection.RabbitMQ())
+		defer helper.RecoverPanic() // Menambahkan recover di dalam goroutine
+
+		consumerVandalDetectionRepository := consumer_vandal_detection.NewRepository(connection.DatabaseMysql(), connection.RabbitMQ(), connection.ElasticSearch())
 		consumerVandalDetectionService := consumer_vandal_detection.NewService(consumerVandalDetectionRepository)
 
 		_, err := consumerVandalDetectionService.ConsumerQueueVandalDetection()
@@ -33,5 +36,8 @@ func main() {
 	}
 
 	router.Run(fmt.Sprintf("%s:%s", config.CONFIG.APP_HOST, config.CONFIG.APP_PORT))
+
+	// Penutupan koneksi setelah aplikasi selesai berjalan
+	defer connection.Close()
 
 }

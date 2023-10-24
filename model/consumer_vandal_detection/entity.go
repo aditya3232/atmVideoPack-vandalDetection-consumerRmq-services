@@ -1,14 +1,9 @@
 package consumer_vandal_detection
 
 // json di struct ini disesuaikan dengan key payload rmq
-type VandalDetection struct {
-	Tid                            string `json:"Tid"`
-	DateTime                       string `json:"DateTime"`
-	Person                         string `json:"Person"`
-	FileNameCaptureVandalDetection string `json:"ConvertedFile"`
-}
-
-// table name
-func (m *VandalDetection) TableName() string {
-	return "tb_vandal_detection"
+type RmqConsumerVandalDetection struct {
+	TidID                               *int   `json:"tid_id"`
+	DateTime                            string `json:"date_time"`
+	Person                              string `json:"Person"`
+	ConvertedFileCaptureVandalDetection string `json:"converted_file_capture_vandal_detection"`
 }

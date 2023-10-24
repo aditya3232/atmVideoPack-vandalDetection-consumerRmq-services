@@ -6,39 +6,42 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aditya3232/gatewatchApp-services.git/config"
-	"github.com/aditya3232/gatewatchApp-services.git/helper"
-	libraryMinio "github.com/aditya3232/gatewatchApp-services.git/library/minio"
-	"github.com/aditya3232/gatewatchApp-services.git/log"
+	"github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/config"
+	"github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/helper"
+	libraryMinio "github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/library/minio"
+	log_function "github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/log"
+	"github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/model/add_vandal_detection_to_elastic"
+	esv7 "github.com/elastic/go-elasticsearch/v7"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/gorm"
 )
 
 type Repository interface {
-	ConsumerQueueVandalDetection() (VandalDetection, error)
-	Create(vandalDetection VandalDetection) (VandalDetection, error)
+	ConsumerQueueVandalDetection() (RmqConsumerVandalDetection, error)
 }
 
 type repository struct {
-	db       *gorm.DB
-	rabbitmq *amqp.Connection
+	db            *gorm.DB
+	rabbitmq      *amqp.Connection
+	elasticsearch *esv7.Client
 }
 
-func NewRepository(db *gorm.DB, rabbitmq *amqp.Connection) *repository {
-	return &repository{db, rabbitmq}
+func NewRepository(db *gorm.DB, rabbitmq *amqp.Connection, elasticsearch *esv7.Client) *repository {
+	return &repository{db, rabbitmq, elasticsearch}
 }
 
-func (r *repository) ConsumerQueueVandalDetection() (VandalDetection, error) {
+func (r *repository) ConsumerQueueVandalDetection() (RmqConsumerVandalDetection, error) {
+	var rmqConsumerVandalDetection RmqConsumerVandalDetection
 
 	// create channel
-	channel, err := r.rabbitmq.Channel()
+	ch, err := r.rabbitmq.Channel()
 	if err != nil {
-		return VandalDetection{}, err
+		return rmqConsumerVandalDetection, err
 	}
-	defer channel.Close()
+	defer ch.Close()
 
 	// consume queue
-	msgs, err := channel.Consume(
+	msgs, err := ch.Consume(
 		"VandalDetectionQueue", // name queue
 		"",                     // Consumer name (empty for random name)
 		true,                   // Auto-acknowledgment (set to true for auto-ack)
@@ -49,21 +52,21 @@ func (r *repository) ConsumerQueueVandalDetection() (VandalDetection, error) {
 	)
 
 	if err != nil {
-		return VandalDetection{}, err
+		return rmqConsumerVandalDetection, err
 	}
 
 	// get message
 	for d := range msgs {
-		vandalDetection := VandalDetection{}
-		err := json.Unmarshal(d.Body, &vandalDetection)
+		newVandalDetection := rmqConsumerVandalDetection
+		err := json.Unmarshal(d.Body, &newVandalDetection)
 		if err != nil {
-			return VandalDetection{}, err
+			return rmqConsumerVandalDetection, err
 		}
 
-		// konversi vandalDetection.FileNameCaptureVandalDetection string ke bytes
-		bytesConvertedFile, err := base64.StdEncoding.DecodeString(vandalDetection.FileNameCaptureVandalDetection)
+		// konversi VandalDetection.FileNameCaptureVandalDetection string ke bytes
+		bytesConvertedFile, err := base64.StdEncoding.DecodeString(newVandalDetection.ConvertedFileCaptureVandalDetection)
 		if err != nil {
-			return VandalDetection{}, err
+			return rmqConsumerVandalDetection, err
 		}
 
 		// Mengunggah gambar ke MinIO
@@ -72,33 +75,43 @@ func (r *repository) ConsumerQueueVandalDetection() (VandalDetection, error) {
 
 		key, err := libraryMinio.UploadFileFromPutObject(config.CONFIG.MINIO_BUCKET, objectName, bytesConvertedFile)
 		if err != nil {
-			log.Error(fmt.Sprintf("Gambar gagal diunggah ke MinIO dengan nama objek: %s\n", key.Key))
-			return VandalDetection{}, err
+			log_function.Error(fmt.Sprintf("Gambar gagal diunggah ke MinIO dengan nama objek: %s\n", key.Key))
+			return rmqConsumerVandalDetection, err
 		}
 
-		// insert Tid, DateTime, Person, File, ConvertedFile from message to db
-		_, err = r.Create(
-			VandalDetection{
-				Tid:                            vandalDetection.Tid,
-				DateTime:                       vandalDetection.DateTime,
-				Person:                         vandalDetection.Person,
+		// add data newVandalDtection to elasticsearch with CreateElasticVandalDetection
+		repoElastic := add_vandal_detection_to_elastic.NewRepository(r.elasticsearch)
+		resultElastic, err := repoElastic.CreateElasticVandalDetection(
+			add_vandal_detection_to_elastic.ElasticVandalDetection{
+				ID:                             helper.DateTimeToStringWithStrip(time.Now()),
+				TidID:                          newVandalDetection.TidID,
+				DateTime:                       newVandalDetection.DateTime,
+				Person:                         newVandalDetection.Person,
 				FileNameCaptureVandalDetection: FileNameCaptureVandalDetection,
 			},
 		)
 		if err != nil {
-			return VandalDetection{}, err
+			return rmqConsumerVandalDetection, err
 		}
+		// log result elastic
+		log_function.Info(fmt.Sprintf("Result elastic: %v\n", resultElastic))
+
+		// create data tb_vandal_detection
+		// repo := tb_vandal_detection.NewRepository(r.db)
+		// _, err = repo.Create(
+		// 	tb_vandal_detection.TbVandalDetection{
+		// 		TidID:                         newVandalDetection.TidID,
+		// 		DateTime:                      newVandalDetection.DateTime,
+		// 		Person:                        newVandalDetection.Person,
+		// 		FileNameCaptureVandalDetection: FileNameCaptureVandalDetection,
+		// 	},
+		// )
+		// if err != nil {
+		// 	return rmqConsumerVandalDetection, err
+		// }
+
 	}
 
-	return VandalDetection{}, nil
+	return rmqConsumerVandalDetection, nil
 
-}
-
-func (r *repository) Create(vandalDetection VandalDetection) (VandalDetection, error) {
-	err := r.db.Create(&vandalDetection).Error
-	if err != nil {
-		return VandalDetection{}, err
-	}
-
-	return vandalDetection, nil
 }

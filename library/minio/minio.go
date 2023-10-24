@@ -6,9 +6,9 @@ import (
 	"mime/multipart"
 	"path/filepath"
 
-	"github.com/aditya3232/gatewatchApp-services.git/connection"
-	"github.com/aditya3232/gatewatchApp-services.git/helper"
-	"github.com/aditya3232/gatewatchApp-services.git/log"
+	"github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/connection"
+	"github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/helper"
+	log_function "github.com/aditya3232/atmVideoPack-vandalDetection-consumerRmq-services.git/log"
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
 )
@@ -23,7 +23,8 @@ func UploadFileFromPutObject(bucketName string, objectName string, imageBytes []
 	}
 
 	n, err := connection.Minio().PutObject(context.TODO(), bucketName, objectName, bytes.NewReader(imageBytes), int64(len(imageBytes)), minio.PutObjectOptions{
-		ContentType: "image/jpeg/jpg", // Sesuaikan tipe konten sesuai dengan gambar yang diunduh
+		// contentType all image
+		ContentType: "application/octet-stream",
 	})
 
 	if err != nil {
@@ -36,7 +37,7 @@ func UploadFileFromPutObject(bucketName string, objectName string, imageBytes []
 func UploadFile(bucketName string, objectName string, filePath string) (minio.UploadInfo, error) {
 	n, err := MinioClient.FPutObject(context.Background(), bucketName, objectName, filePath, minio.PutObjectOptions{ContentType: "application/octet-stream"})
 	if err != nil {
-		log.Error(err)
+		log_function.Error(err)
 		return minio.UploadInfo{}, err
 	}
 

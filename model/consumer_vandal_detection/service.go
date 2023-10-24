@@ -1,11 +1,11 @@
 package consumer_vandal_detection
 
 type Service interface {
-	ConsumerQueueVandalDetection() (VandalDetection, error)
+	ConsumerQueueVandalDetection() (RmqConsumerVandalDetection, error)
 }
 
 type service struct {
-	vandalDetectionRepository Repository
+	statusMcDetectionRepository Repository
 }
 
 func NewService(repository Repository) *service {
@@ -13,14 +13,14 @@ func NewService(repository Repository) *service {
 }
 
 // consume and save to db
-func (s *service) ConsumerQueueVandalDetection() (VandalDetection, error) {
+func (s *service) ConsumerQueueVandalDetection() (RmqConsumerVandalDetection, error) {
 
 	// consume queue
-	vandalDetection, err := s.vandalDetectionRepository.ConsumerQueueVandalDetection()
+	newRmqConsumerVandalDetection, err := s.statusMcDetectionRepository.ConsumerQueueVandalDetection()
 	if err != nil {
-		return VandalDetection{}, err
+		return newRmqConsumerVandalDetection, err
 	}
 
-	return vandalDetection, nil
+	return newRmqConsumerVandalDetection, nil
 
 }
