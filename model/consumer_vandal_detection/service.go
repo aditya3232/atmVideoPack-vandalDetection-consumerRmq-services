@@ -5,7 +5,7 @@ type Service interface {
 }
 
 type service struct {
-	statusMcDetectionRepository Repository
+	vandalDetectionRepository Repository
 }
 
 func NewService(repository Repository) *service {
@@ -16,7 +16,7 @@ func NewService(repository Repository) *service {
 func (s *service) ConsumerQueueVandalDetection() (RmqConsumerVandalDetection, error) {
 
 	// consume queue
-	newRmqConsumerVandalDetection, err := s.statusMcDetectionRepository.ConsumerQueueVandalDetection()
+	newRmqConsumerVandalDetection, err := s.vandalDetectionRepository.ConsumerQueueVandalDetection()
 	if err != nil {
 		return newRmqConsumerVandalDetection, err
 	}
