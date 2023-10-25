@@ -12,7 +12,7 @@ type TbVandalDetection struct {
 	UpdatedAt                      time.Time `gorm:"column:updated_at;default:now()" json:"updated_at"`
 	TidID                          *int      `json:"tid_id"`
 	DateTime                       string    `json:"date_time"`
-	Person                         string    `json:"Person"`
+	Person                         string    `json:"person"`
 	FileNameCaptureVandalDetection string    `json:"file_name_capture_vandal_detection"`
 }
 
