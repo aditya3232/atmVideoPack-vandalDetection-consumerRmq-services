@@ -1,7 +1,6 @@
 package add_vandal_detection_to_elastic
 
 import (
-	"strconv"
 	"strings"
 
 	esv7 "github.com/elastic/go-elasticsearch/v7"
@@ -29,7 +28,7 @@ func (r *repository) CreateElasticVandalDetection(elasticVandalDetection Elastic
 	// Misalnya, jika Anda ingin menyimpan data deteksi manusia yang diberikan sebagai JSON:
 	body := []byte(`{
 		"id": "` + elasticVandalDetection.ID + `",
-		"tid_id": "` + strconv.Itoa(*elasticVandalDetection.TidID) + `",
+		"tid": "` + elasticVandalDetection.Tid + `",
 		"date_time": "` + elasticVandalDetection.DateTime + `",
 		"person": "` + elasticVandalDetection.Person + `",
 		"file_name_capture_vandal_detection": "` + elasticVandalDetection.FileNameCaptureVandalDetection + `"

@@ -84,7 +84,7 @@ func (r *repository) ConsumerQueueVandalDetection() (RmqConsumerVandalDetection,
 		resultElastic, err := repoElastic.CreateElasticVandalDetection(
 			add_vandal_detection_to_elastic.ElasticVandalDetection{
 				ID:                             helper.DateTimeToStringWithStrip(time.Now()),
-				TidID:                          newVandalDetection.TidID,
+				Tid:                            newVandalDetection.Tid,
 				DateTime:                       newVandalDetection.DateTime,
 				Person:                         newVandalDetection.Person,
 				FileNameCaptureVandalDetection: FileNameCaptureVandalDetection,
